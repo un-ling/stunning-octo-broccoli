@@ -1,0 +1,8 @@
+{
+  "decision": "hold",
+  "confidence": 0.65,
+  "reasoning": "当前价格处于下跌趋势中，且低于20日和60日均线，短期偏弱。成交量正常但无明显突破信号，缺乏买入或卖出的强动因，宜观望等待趋势明朗。",
+  "target_price": 3.166,
+  "stop_loss": 3.087,
+  "take_profit": 3.2
+}

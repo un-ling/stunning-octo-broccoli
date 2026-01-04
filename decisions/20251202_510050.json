@@ -1,0 +1,8 @@
+{
+  "decision": "hold",
+  "confidence": 0.65,
+  "reasoning": "当前价格处于上涨趋势中，但低于20日均线且接近60日均线支撑，量能正常，短期方向不明。建议观望等待突破信号，避免追高或抄底。",
+  "target_price": 3.14,
+  "stop_loss": 3.101,
+  "take_profit": 3.16
+}

@@ -1,0 +1,8 @@
+{
+  "decision": "buy",
+  "confidence": 0.75,
+  "reasoning": "价格站上20日均线且短期涨幅积极，尽管处于下跌趋势中，但近期动能转强，成交量配合良好，具备短线反弹机会。",
+  "target_price": 4.83,
+  "stop_loss": 4.62,
+  "take_profit": 4.9
+}

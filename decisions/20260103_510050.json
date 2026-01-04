@@ -1,0 +1,8 @@
+{
+  "decision": "hold",
+  "confidence": 0.65,
+  "reasoning": "当前价格低于20日和60日均线，处于下跌趋势中，虽成交量放大但缺乏上涨动能。短期波动率较低，方向不明，暂无明确入场信号。",
+  "target_price": 3.136,
+  "stop_loss": 3.078,
+  "take_profit": 3.164
+}

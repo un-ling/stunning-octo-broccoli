@@ -1,0 +1,8 @@
+{
+  "decision": "sell",
+  "confidence": 0.75,
+  "reasoning": "当前处于下跌趋势，价格虽略高于20日均线但受压于60日均线，且近期涨跌幅为负，量价配合偏弱，显示反弹动能不足，具备逢高做空机会。",
+  "target_price": 3.118,
+  "stop_loss": 3.144,
+  "take_profit": 3.102
+}

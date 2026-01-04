@@ -1,0 +1,8 @@
+{
+  "decision": "buy",
+  "confidence": 0.75,
+  "reasoning": "该ETF处于上涨趋势，价格高于20日和60日均线，短期动能偏强。近期波动率较低，存在向上突破空间，结合趋势与位置判断，具备短线买入机会。",
+  "target_price": 3.245,
+  "stop_loss": 3.18,
+  "take_profit": 3.275
+}

@@ -1,0 +1,8 @@
+{
+  "decision": "hold",
+  "confidence": 0.65,
+  "reasoning": "当前价格处于下跌趋势中，虽站上20日均线但受阻于60日均线，量能未明显放大，方向尚未明朗。短期均值回归概率较高，暂无明确趋势信号。",
+  "target_price": 4.774,
+  "stop_loss": 4.574,
+  "take_profit": 4.854
+}

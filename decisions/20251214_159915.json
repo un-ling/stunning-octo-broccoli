@@ -1,0 +1,8 @@
+{
+  "decision": "hold",
+  "confidence": 0.65,
+  "reasoning": "该ETF处于下跌趋势中，但价格已回升至20日均线上方，短期偏强。成交量正常，缺乏突破信号。近期涨幅有限，波动率较低，方向不明，建议观望等待明确信号。",
+  "target_price": 3.214,
+  "stop_loss": 3.144,
+  "take_profit": 3.244
+}

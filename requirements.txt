@@ -1,0 +1,12 @@
+akshare
+openai
+flask
+pandas
+schedule
+echarts-python
+openpyxl
+matplotlib
+scikit-learn
+python-dotenv
+apscheduler
+pydantic

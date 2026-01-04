@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI炒ETF系统 - 量化交易可视化平台</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" onerror="(function(){var s=document.createElement('script');s.src='https://unpkg.com/echarts@5/dist/echarts.min.js';s.onerror=function(){var s2=document.createElement('script');s2.src='https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js';document.head.appendChild(s2);};document.head.appendChild(s);}())"></script>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #1f2328;
+      --muted: #6b7480;
+      --border: #e5e7eb;
+      --primary: #165dff;
+      --success: #00b42a;
+      --danger: #f53f3f;
+      --radius: 12px;
+      --shadow: 0 8px 24px rgba(17, 24, 39, 0.06);
+      --nav-height: 60px; /* 导航栏高度，用于内容区偏移 */
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    a { color: var(--primary); text-decoration: none; }
+
+    /* 顶部固定导航栏核心样式 */
+    .top-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: var(--nav-height);
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      z-index: 999; /* 确保导航栏在最上层 */
+    }
+    .nav-container {
+      max-width: 1200px;
+      height: 100%;
+      margin: 0 auto;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0; /* 导航项无间距，视觉更紧凑 */
+    }
+    .nav-item {
+      height: 100%;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-bottom: 3px solid transparent;
+    }
+    /* 激活态样式：底部边框+文字变色 */
+    .nav-item.active {
+      color: var(--primary);
+      border-bottom: 3px solid var(--primary);
+      background: rgba(22, 93, 255, 0.05);
+    }
+    /* 悬浮态样式 */
+    .nav-item:hover:not(.active) {
+      color: var(--primary);
+      background: rgba(22, 93, 255, 0.03);
+    }
+    /* 响应式适配：小屏幕缩小导航项间距和内边距 */
+    @media (max-width: 768px) {
+      .nav-item {
+        padding: 0 12px;
+        font-size: 14px;
+      }
+    }
+
+    /* 页面内容容器：预留导航栏高度，避免内容被遮挡 */
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: calc(var(--nav-height) + 20px) 16px 48px;
+    }
+
+    .alert {
+      background: rgba(245, 63, 63, 0.08);
+      border: 1px solid rgba(245, 63, 63, 0.25);
+      color: var(--danger);
+      padding: 12px 14px;
+      border-radius: 12px;
+      margin-bottom: 14px;
+      display: none;
+    }
+
+    /* 内容模块：设置锚点滚动偏移，避免被导航栏遮挡 */
+    section {
+      scroll-margin-top: var(--nav-height);
+      margin-bottom: 32px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0;
+      color: var(--text);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      flex: 1;
+    }
+    .section-desc {
+      margin: 0 0 12px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .metric .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .metric .value { font-size: 22px; font-weight: 800; min-height: 28px; }
+    .pos { color: var(--success); }
+    .neg { color: var(--danger); }
+
+    .chart { width: 100%; height: 360px; }
+    .chart-sm { width: 100%; height: 320px; }
+
+    .table-wrap { overflow: auto; border-radius: 12px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; min-width: 860px; background: #fff; }
+    th, td { padding: 10px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; font-size: 13px; }
+    th { position: sticky; top: 0; background: #fbfbfd; z-index: 1; }
+    td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); background: #fff; }
+    .tag.buy { border-color: rgba(0,180,42,0.3); color: var(--success); background: rgba(0,180,42,0.06); }
+    .tag.sell { border-color: rgba(245,63,63,0.3); color: var(--danger); background: rgba(245,63,63,0.06); }
+    .tag.hold { border-color: rgba(107,116,128,0.3); color: var(--muted); background: rgba(107,116,128,0.06); }
+
+    /* 按钮样式优化 */
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .actions button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: #fff;
+      padding: 9px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+    /* 刷新按钮 */
+    #btnRefresh {
+      border-color: rgba(22,93,255,0.35);
+      color: var(--primary);
+      background: rgba(22,93,255,0.05);
+    }
+    #btnRefresh:hover {
+      background: rgba(22,93,255,0.1);
+    }
+    /* 暂停按钮 */
+    #btnPause {
+      border-color: rgba(245,63,63,0.35);
+      color: var(--danger);
+      background: rgba(245,63,63,0.05);
+    }
+    #btnPause:hover {
+      background: rgba(245,63,63,0.1);
+    }
+    /* 恢复按钮 */
+    #btnResume {
+      border-color: rgba(0,180,42,0.35);
+      color: var(--success);
+      background: rgba(0,180,42,0.05);
+    }
+    #btnResume:hover {
+      background: rgba(0,180,42,0.1);
+    }
+    /* 导出CSV按钮（绿色醒目） */
+    #btnExportTrades {
+      border-color: var(--success);
+      background: var(--success);
+      color: #fff;
+      font-weight: 600;
+      padding: 9px 16px; /* 统一按钮内边距，和其他按钮对齐 */
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,180,42,0.2);
+    }
+    #btnExportTrades:hover {
+      background: #00a026;
+      border-color: #00a026;
+      box-shadow: 0 4px 12px rgba(0,180,42,0.3);
+    }
+
+    .last-refreshed {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1100px) {
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      table { min-width: 980px; }
+      .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .last-refreshed {
+        margin-left: 0;
+        margin-top: 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部固定导航栏 -->
+  <nav class="top-nav">
+    <div class="nav-container">
+      <div class="nav-item active" data-target="overview">系统总览模块</div>
+      <div class="nav-item" data-target="performance">绩效评估可视化模块</div>
+      <div class="nav-item" data-target="strategy">数据与策略展示模块</div>
+      <div class="nav-item" data-target="trading">交易执行与持仓模块</div>
+    </div>
+  </nav>
+
+  <!-- 页面主内容 -->
+  <main class="page">
+    <div class="alert" id="errorBox"></div>
+
+    <!-- 1. 系统总览模块 -->
+    <section id="overview">
+      <div class="section-header">
+        <h2 class="section-title">系统总览模块</h2>
+        <div class="actions">
+          <!-- 导出按钮移至此处，在刷新按钮旁 -->
+          <button id="btnExportTrades">导出交易记录 CSV</button>
+          <button id="btnRefresh">刷新系统数据</button>
+          <button id="btnPause">暂停交易任务</button>
+          <button id="btnResume">恢复交易任务</button>
+          <span class="last-refreshed" id="lastRefreshed">最近刷新：-</span>
+        </div>
+      </div>
+      <p class="section-desc">
+        本模块展示AI炒ETF系统核心运行状态、关键财务指标及整体数据概览，数据来源于交易库 <span class="mono">trade_history.db</span> 与行情库 <span class="mono">etf_data.db</span>。
+      </p>
+
+      <!-- 第一行4个指标：初始资金、当前总资产、总收益率、最大回撤 -->
+      <div class="grid-4">
+        <div class="card metric">
+          <div class="label">初始资金（反推值）</div>
+          <div class="value" id="mInitial">-</div>
+        </div>
+        <div class="card metric">
+          <div class="label">当前总资产</div>
+          <div class="value" id="mCurrent">-</div>
+        </div>
+        <div class="card metric">
+          <div class="label">总收益率</div>
+          <div class="value" id="mTotalReturn">-</div>
+        </div>
+        <div class="card metric">
+          <div class="label">最大回撤</div>
+          <div class="value" id="mMaxDD">-</div>
+        </div>
+      </div>
+
+      <!-- 第二行4个指标：胜率、交易次数、夏普比率、波动率 -->
+      <div class="grid-4">
+        <div class="card metric">
+          <div class="label">胜率</div>
+          <div class="value" id="mWinRate">-</div>
+        </div>
+        <div class="card metric">
+          <div class="label">交易次数</div>
+          <div class="value" id="mTradeCount">-</div>
+        </div>
+        <div class="card metric">
+          <div class="label">夏普比率</div>
+          <div class="value" id="mSharpe">-</div>
+        </div>
+        <div class="card metric">
+          <div class="label">波动率</div>
+          <div class="value" id="mVoltage">-</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 绩效评估可视化模块 -->
+    <section id="performance">
+      <h2 class="section-title">绩效评估可视化模块</h2>
+      <p class="section-desc">
+        基于账户历史数据生成可视化图表，直观展示总资产走势、近30天绩效表现，辅助评估策略有效性。
+      </p>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-weight:800;">账户总资产曲线</div>
+            <div class="muted" style="font-size:12px;margin-top:4px;">展示数据库中的历史估值序列</div>
+          </div>
+          <div class="muted" id="perfRange" style="font-size:12px;">-</div>
+        </div>
+        <div id="performanceChart" class="chart" style="margin-top:10px;height:420px;"></div>
+      </div>
+
+      <div class="grid-2" style="margin-top:12px;">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+              <div style="font-weight:800;">收益曲线（近30天）</div>
+              <div class="muted" style="font-size:12px;margin-top:4px;">基于数据库资产序列计算累计收益率</div>
+            </div>
+            <div class="muted" id="returnRange" style="font-size:12px;">-</div>
+          </div>
+          <div id="returnChart" class="chart" style="margin-top:10px;"></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+              <div style="font-weight:800;">策略净值曲线</div>
+              <div class="muted" style="font-size:12px;margin-top:4px;">AI策略 vs 基准（510300）</div>
+            </div>
+            <div class="muted" id="navRange" style="font-size:12px;">-</div>
+          </div>
+          <div id="strategyNavChart" class="chart" style="margin-top:10px;"></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:12px;">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+              <div style="font-weight:800;">回测深度（Underwater）</div>
+              <div class="muted" style="font-size:12px;margin-top:4px;">基于策略净值序列计算回撤深度</div>
+            </div>
+            <div class="muted" id="uwRange" style="font-size:12px;">-</div>
+          </div>
+          <div id="underwaterChart" class="chart" style="margin-top:10px;"></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+              <div style="font-weight:800;">单笔交易盈亏分布</div>
+              <div class="muted" style="font-size:12px;margin-top:4px;">按卖出交易计算单笔盈亏%</div>
+            </div>
+            <div class="muted" id="pnlRange" style="font-size:12px;">-</div>
+          </div>
+          <div id="tradePnlChart" class="chart" style="margin-top:10px;"></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:12px;">
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+              <div style="font-weight:800;">交易信号时序图</div>
+              <div class="muted" style="font-size:12px;margin-top:4px;">基于 trades 表的买卖信号</div>
+            </div>
+            <div class="muted" id="signalRange" style="font-size:12px;">-</div>
+          </div>
+          <div id="tradeSignalChart" class="chart" style="margin-top:10px;"></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+              <div style="font-weight:800;">策略综合画像</div>
+              <div class="muted" style="font-size:12px;margin-top:4px;">基于真实绩效指标映射为0-100分</div>
+            </div>
+            <div class="muted" id="radarHint" style="font-size:12px;">-</div>
+          </div>
+          <div id="strategyRadarChart" class="chart" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 数据与策略展示模块 -->
+    <section id="strategy">
+      <h2 class="section-title">数据与策略展示模块</h2>
+      <p class="section-desc">
+        展示AI决策历史、策略逻辑及核心参数，包含最近50条AI决策记录，便于复盘策略执行效果。
+      </p>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-weight:800;">最近50条AI决策记录（decisions/*.json）</div>
+            <div class="muted" style="font-size:12px;margin-top:4px;">展示决策、置信度与分析理由（便于复盘）</div>
+          </div>
+          <span class="tag hold" id="decisionsCount">-</span>
+        </div>
+        <div class="table-wrap" style="margin-top:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>ETF</th>
+                <th>决策</th>
+                <th>置信度</th>
+                <th>分析理由</th>
+                <th>文件</th>
+              </tr>
+            </thead>
+            <tbody id="decisionsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. 交易执行与持仓模块 -->
+    <section id="trading">
+      <h2 class="section-title">交易执行与持仓模块</h2>
+      <p class="section-desc">
+        展示当前持仓明细、最近100笔交易记录，实时反映账户持仓结构与交易执行情况。
+      </p>
+
+      <!-- 持仓明细 -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-weight:800;">当前持仓结构</div>
+            <div class="muted" style="font-size:12px;margin-top:4px;">基于 <span class="mono">/api/positions</span> 返回的持仓与市值</div>
+          </div>
+          <span class="tag hold" id="posHint">仅展示当前持仓</span>
+        </div>
+        <div id="positionsChart" class="chart-sm" style="margin-top:10px;"></div>
+      </div>
+
+      <!-- 持仓明细表格 -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-weight:800;">当前持仓明细</div>
+            <div class="muted" style="font-size:12px;margin-top:4px;">由 <span class="mono">positions</span> 表 + 最新行情计算</div>
+          </div>
+          <span class="tag hold" id="posCount">-</span>
+        </div>
+        <div class="table-wrap" style="margin-top:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>ETF 代码</th>
+                <th>数量</th>
+                <th>成本价</th>
+                <th>最新价</th>
+                <th>最新价日期</th>
+                <th>市值</th>
+                <th>浮盈/浮亏</th>
+                <th>浮盈/浮亏%</th>
+                <th>止损</th>
+                <th>止盈</th>
+              </tr>
+            </thead>
+            <tbody id="positionsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 交易记录 -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-weight:800;">最近100笔交易记录（数据库 trades 表）</div>
+            <div class="muted" style="font-size:12px;margin-top:4px;">展示日期、标的、操作、价格、数量、金额、资金变化与理由</div>
+          </div>
+          <span class="tag hold" id="tradesCount">-</span>
+        </div>
+        <div class="table-wrap" style="margin-top:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>ETF</th>
+                <th>操作</th>
+                <th>价格</th>
+                <th>数量</th>
+                <th>金额</th>
+                <th>操作后资金</th>
+                <th>理由</th>
+              </tr>
+            </thead>
+            <tbody id="tradesBody"></tbody>
+          </table>
+        </div>
+        <!-- 移除原位置的导出按钮 -->
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const API_BASE = (() => {
+      const origin = String(window.location?.origin || '');
+      if (origin && origin !== 'null' && origin.startsWith('http')) return origin;
+      return 'http://127.0.0.1:5000';
+    })();
+
+    // DOM元素引用
+    const els = {
+      statusText: { textContent: '系统运行中' }, // 简化状态展示
+      errorBox: document.getElementById('errorBox'),
+      lastRefreshed: document.getElementById('lastRefreshed'),
+      perfRange: document.getElementById('perfRange'),
+      mInitial: document.getElementById('mInitial'),
+      mCurrent: document.getElementById('mCurrent'),
+      mTotalReturn: document.getElementById('mTotalReturn'),
+      mMaxDD: document.getElementById('mMaxDD'),
+      // 新增4个指标DOM引用
+      mWinRate: document.getElementById('mWinRate'),
+      mTradeCount: document.getElementById('mTradeCount'),
+      mSharpe: document.getElementById('mSharpe'),
+      mVoltage: document.getElementById('mVoltage'),
+      returnRange: document.getElementById('returnRange'),
+      navRange: document.getElementById('navRange'),
+      uwRange: document.getElementById('uwRange'),
+      pnlRange: document.getElementById('pnlRange'),
+      signalRange: document.getElementById('signalRange'),
+      radarHint: document.getElementById('radarHint'),
+      // 表格/图表
+      positionsBody: document.getElementById('positionsBody'),
+      tradesBody: document.getElementById('tradesBody'),
+      decisionsBody: document.getElementById('decisionsBody'),
+      posCount: document.getElementById('posCount'),
+      tradesCount: document.getElementById('tradesCount'),
+      decisionsCount: document.getElementById('decisionsCount'),
+      // 按钮
+      btnRefresh: document.getElementById('btnRefresh'),
+      btnPause: document.getElementById('btnPause'),
+      btnResume: document.getElementById('btnResume'),
+      btnExportTrades: document.getElementById('btnExportTrades'),
+      // 图表实例
+      positionsChart: null,
+      performanceChart: null,
+      returnChart: null,
+      strategyNavChart: null,
+      underwaterChart: null,
+      tradePnlChart: null,
+      tradeSignalChart: null,
+      strategyRadarChart: null,
+      navHeight: 60 // 导航栏高度
+    };
+
+    // 格式化工具函数
+    function fmtCurrency(v) {
+      if (v === null || v === undefined || Number.isNaN(Number(v))) return '-'
+      return Number(v).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' })
+    }
+    function fmtNumber(v, digits = 2) {
+      if (v === null || v === undefined || Number.isNaN(Number(v))) return '-'
+      return Number(v).toFixed(digits)
+    }
+    function fmtPct(v, digits = 2) {
+      if (v === null || v === undefined || Number.isNaN(Number(v))) return '-'
+      return Number(v).toFixed(digits) + '%'
+    }
+    function fmtDateTime(value) {
+      if (!value) return new Date().toLocaleString()
+      const d = new Date(value)
+      if (Number.isNaN(d.getTime())) return String(value)
+      return d.toLocaleString('zh-CN')
+    }
+
+    // 最大回撤计算
+    function maxDrawdown(values) {
+      let peak = -Infinity
+      let maxDd = 0
+      for (const v0 of values) {
+        const v = Number(v0)
+        if (Number.isNaN(v)) continue
+        if (v > peak) peak = v
+        const dd = peak > 0 ? (v - peak) / peak : 0
+        if (dd < maxDd) maxDd = dd
+      }
+      return Math.abs(maxDd) * 100
+    }
+
+    // 导航栏核心逻辑：锚点跳转 + 激活态切换
+    function initNav() {
+      const navItems = document.querySelectorAll('.nav-item');
+      navItems.forEach(item => {
+        item.addEventListener('click', function() {
+          // 移除所有激活态
+          navItems.forEach(nav => nav.classList.remove('active'));
+          // 给当前点击项添加激活态
+          this.classList.add('active');
+          // 平滑滚动到目标模块
+          const targetId = this.getAttribute('data-target');
+          const targetEl = document.getElementById(targetId);
+          if (targetEl) {
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        });
+      });
+
+      // 监听滚动，自动更新导航激活态
+      window.addEventListener('scroll', function() {
+        const sections = document.querySelectorAll('section');
+        let currentSection = '';
+        sections.forEach(section => {
+          const sectionTop = section.offsetTop - els.navHeight || 80;
+          const sectionHeight = section.offsetHeight;
+          if (window.scrollY >= sectionTop && window.scrollY < sectionTop + sectionHeight) {
+            currentSection = section.id;
+          }
+        });
+
+        navItems.forEach(item => {
+          item.classList.toggle('active', item.getAttribute('data-target') === currentSection);
+        });
+      });
+    }
+
+    // 初始化图表
+    function initCharts() {
+      if (!window.echarts) throw new Error('ECharts not loaded');
+      // 总资产曲线
+      els.performanceChart = echarts.init(document.getElementById('performanceChart'));
+      els.performanceChart.setOption({
+        grid: { left: 52, right: 18, top: 18, bottom: 44, containLabel: true },
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: [], axisLabel: { color: '#6b7480' } },
+        yAxis: { type: 'value', scale: true, axisLabel: { color: '#6b7480' } },
+        series: [{ 
+          name: '总资产', 
+          type: 'line', 
+          smooth: true, 
+          showSymbol: false, 
+          lineStyle: { width: 3, color: '#165dff' }, 
+          areaStyle: { color: 'rgba(22,93,255,0.10)' }, 
+          data: [] 
+        }]
+      });
+
+      // 持仓饼图
+      els.positionsChart = echarts.init(document.getElementById('positionsChart'));
+      els.positionsChart.setOption({
+        tooltip: { trigger: 'item' },
+        legend: { bottom: 0, textStyle: { color: '#6b7480' } },
+        series: [{ 
+          type: 'pie', 
+          radius: ['45%', '70%'], 
+          itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 }, 
+          label: { formatter: '{b}\n{d}%' }, 
+          data: [] 
+        }] 
+      });
+
+      // 收益曲线（近30天）
+      els.returnChart = echarts.init(document.getElementById('returnChart'));
+      els.returnChart.setOption({
+        grid: { left: 52, right: 18, top: 18, bottom: 44, containLabel: true },
+        tooltip: { trigger: 'axis', valueFormatter: (v) => fmtPct(v, 2) },
+        xAxis: { type: 'category', data: [], axisLabel: { color: '#6b7480' } },
+        yAxis: { type: 'value', scale: true, axisLabel: { color: '#6b7480', formatter: '{value}%' } },
+        series: [{
+          name: '累计收益',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          lineStyle: { width: 3, color: '#00b42a' },
+          areaStyle: { color: 'rgba(0,180,42,0.10)' },
+          data: []
+        }]
+      });
+
+      // 策略净值曲线
+      els.strategyNavChart = echarts.init(document.getElementById('strategyNavChart'));
+      els.strategyNavChart.setOption({
+        grid: { left: 52, right: 18, top: 18, bottom: 44, containLabel: true },
+        tooltip: { trigger: 'axis' },
+        legend: { bottom: 0, textStyle: { color: '#6b7480' } },
+        xAxis: { type: 'category', data: [], axisLabel: { color: '#6b7480' } },
+        yAxis: { type: 'value', scale: true, axisLabel: { color: '#6b7480' } },
+        series: [
+          {
+            name: 'AI策略净值',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            lineStyle: { width: 3, color: '#f53f3f' },
+            areaStyle: { color: 'rgba(245,63,63,0.08)' },
+            data: []
+          },
+          {
+            name: '基准（510300）',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            lineStyle: { width: 2, color: 'rgba(107,116,128,0.75)', type: 'dashed' },
+            data: []
+          }
+        ]
+      });
+
+      // 回撤深度（Underwater）
+      els.underwaterChart = echarts.init(document.getElementById('underwaterChart'));
+      els.underwaterChart.setOption({
+        grid: { left: 52, right: 18, top: 18, bottom: 44, containLabel: true },
+        tooltip: { trigger: 'axis', valueFormatter: (v) => fmtPct(v, 2) },
+        xAxis: { type: 'category', data: [], axisLabel: { color: '#6b7480' } },
+        yAxis: { type: 'value', scale: true, axisLabel: { color: '#6b7480', formatter: '{value}%' } },
+        series: [{
+          name: '回撤深度',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          lineStyle: { width: 3, color: '#00b42a' },
+          areaStyle: { color: 'rgba(0,180,42,0.12)' },
+          data: []
+        }]
+      });
+
+      els.tradePnlChart = echarts.init(document.getElementById('tradePnlChart'));
+      els.tradePnlChart.setOption({
+        grid: { left: 52, right: 18, top: 18, bottom: 44, containLabel: true },
+        tooltip: {
+          trigger: 'item',
+          formatter: (params) => {
+            const d = params?.data || {};
+            const pnlPct = d?.pnl_pct;
+            const pnlAmt = d?.pnl;
+            const date = d?.date || '-';
+            const code = d?.etf_code || '-';
+            return `${date}<br/>${code}<br/>盈亏：${fmtCurrency(pnlAmt)}<br/>盈亏%：${fmtPct(pnlPct, 2)}`;
+          }
+        },
+        xAxis: { type: 'value', name: '交易序号', nameTextStyle: { color: '#6b7480' }, axisLabel: { color: '#6b7480' } },
+        yAxis: { type: 'value', name: '盈亏%', nameTextStyle: { color: '#6b7480' }, axisLabel: { color: '#6b7480', formatter: '{value}%' } },
+        series: [{
+          name: '单笔盈亏%',
+          type: 'scatter',
+          symbolSize: (val) => {
+            const y = Array.isArray(val) ? Number(val[1]) : 0;
+            const s = 8 + Math.min(18, Math.abs(y) * 1.2);
+            return Number.isFinite(s) ? s : 10;
+          },
+          itemStyle: {
+            color: (params) => {
+              const y = Array.isArray(params?.value) ? Number(params.value[1]) : 0;
+              return y >= 0 ? '#f53f3f' : '#0fc6c2';
+            },
+            opacity: 0.9
+          },
+          markLine: { symbol: 'none', data: [{ yAxis: 0 }], lineStyle: { color: 'rgba(107,116,128,0.6)' } },
+          data: []
+        }]
+      });
+
+      els.tradeSignalChart = echarts.init(document.getElementById('tradeSignalChart'));
+      els.tradeSignalChart.setOption({
+        grid: { left: 52, right: 18, top: 18, bottom: 44, containLabel: true },
+        tooltip: {
+          trigger: 'item',
+          formatter: (params) => {
+            const d = params?.data || {};
+            const dt = d?.datetime || d?.date || '-';
+            const code = d?.etf_code || '-';
+            const action = d?.action === 'buy' ? '买入' : d?.action === 'sell' ? '卖出' : (d?.action || '-');
+            const price = d?.price;
+            const qty = d?.quantity;
+            const amount = d?.amount;
+            return `${dt}<br/>${code}<br/>信号：${action}<br/>价格：${fmtNumber(price, 3)}<br/>数量：${fmtNumber(qty, 2)}<br/>金额：${fmtCurrency(amount)}`;
+          }
+        },
+        legend: { bottom: 0, textStyle: { color: '#6b7480' } },
+        xAxis: { type: 'category', data: [], axisLabel: { color: '#6b7480' } },
+        yAxis: { type: 'category', data: ['卖出', '买入'], axisLabel: { color: '#6b7480' } },
+        series: [
+          {
+            name: '买入',
+            type: 'scatter',
+            symbol: 'triangle',
+            symbolRotate: 0,
+            symbolSize: 14,
+            itemStyle: { color: '#00b42a' },
+            data: []
+          },
+          {
+            name: '卖出',
+            type: 'scatter',
+            symbol: 'triangle',
+            symbolRotate: 180,
+            symbolSize: 14,
+            itemStyle: { color: '#f53f3f' },
+            data: []
+          }
+        ]
+      });
+
+      els.strategyRadarChart = echarts.init(document.getElementById('strategyRadarChart'));
+      els.strategyRadarChart.setOption({
+        tooltip: { trigger: 'item' },
+        radar: {
+          radius: '62%',
+          splitNumber: 5,
+          axisName: { color: '#6b7480' },
+          splitLine: { lineStyle: { color: 'rgba(229,230,235,0.85)' } },
+          splitArea: { areaStyle: { color: ['rgba(255,255,255,0.0)', 'rgba(245,246,247,0.35)'] } },
+          axisLine: { lineStyle: { color: 'rgba(229,230,235,0.85)' } },
+          indicator: []
+        },
+        series: [{
+          type: 'radar',
+          data: [{
+            name: '策略画像',
+            value: [],
+            lineStyle: { width: 3, color: '#165dff' },
+            itemStyle: { color: '#165dff' },
+            areaStyle: { color: 'rgba(22,93,255,0.18)' }
+          }]
+        }]
+      });
+
+      // 窗口resize时重绘图表
+      window.addEventListener('resize', () => {
+        els.performanceChart?.resize();
+        els.positionsChart?.resize();
+        els.returnChart?.resize();
+        els.strategyNavChart?.resize();
+        els.underwaterChart?.resize();
+        els.tradePnlChart?.resize();
+        els.tradeSignalChart?.resize();
+        els.strategyRadarChart?.resize();
+      });
+    }
+
+    const state = {
+      summary: null,
+      performance: null,
+      trades: [],
+      decisions: [],
+      positions: [],
+      status: null
+    };
+
+    function showError(message) {
+      els.errorBox.textContent = message || '请求失败';
+      els.errorBox.style.display = 'block';
+      els.errorBox.style.background = 'rgba(245, 63, 63, 0.08)';
+      els.errorBox.style.borderColor = 'rgba(245, 63, 63, 0.25)';
+      els.errorBox.style.color = '#f53f3f';
+    }
+
+    function showWarn(message) {
+      els.errorBox.textContent = message || '';
+      els.errorBox.style.display = message ? 'block' : 'none';
+      els.errorBox.style.background = 'rgba(250, 173, 20, 0.08)';
+      els.errorBox.style.borderColor = 'rgba(250, 173, 20, 0.25)';
+      els.errorBox.style.color = '#faa314';
+    }
+
+    function clearError() {
+      els.errorBox.style.display = 'none';
+      els.errorBox.textContent = '';
+    }
+
+    async function fetchJson(url, options) {
+      const fullUrl = (url && String(url).startsWith('/')) ? (API_BASE + url) : url;
+      const res = await fetch(fullUrl, options);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`${res.status} ${res.statusText}${text ? ' - ' + text : ''}`);
+      }
+      return res.json();
+    }
+
+    function updateOverview(summary) {
+      const initial = summary?.initial_capital ?? null;
+      const current = summary?.current_capital ?? null;
+      const totalReturn = summary?.total_return ?? null;
+      const maxDd = summary?.max_drawdown ?? null;
+      const winRate = summary?.win_rate ?? null;
+      const tradeCount = summary?.total_trades ?? null;
+      const sharpe = summary?.sharpe_ratio ?? null;
+      const vol = summary?.volatility ?? null;
+
+      els.mInitial.textContent = fmtCurrency(initial);
+      els.mCurrent.textContent = fmtCurrency(current);
+
+      els.mTotalReturn.textContent = fmtPct(totalReturn);
+      els.mTotalReturn.className = 'value ' + (Number(totalReturn) >= 0 ? 'pos' : 'neg');
+
+      els.mMaxDD.textContent = fmtPct(maxDd);
+      els.mWinRate.textContent = fmtPct(winRate);
+      els.mTradeCount.textContent = tradeCount === null || tradeCount === undefined ? '-' : String(tradeCount);
+      els.mSharpe.textContent = fmtNumber(sharpe, 2);
+      els.mVoltage.textContent = fmtPct(vol, 2);
+    }
+
+    function updatePerformanceChart(history) {
+      const dates = history?.dates || [];
+      const values = history?.values || [];
+      if (dates.length > 0 && values.length > 0) {
+        els.perfRange.textContent = `${dates[0]} ~ ${dates[dates.length - 1]}`;
+      } else {
+        els.perfRange.textContent = '-';
+      }
+      els.performanceChart?.setOption({
+        xAxis: { data: dates },
+        series: [{ data: values }]
+      });
+
+      const n = Math.min(30, Math.min(dates.length, values.length));
+      if (n >= 2) {
+        const tailDates = dates.slice(-n);
+        const tailValues = values.slice(-n).map(v => Number(v));
+        const base = tailValues[0];
+        const retSeries = base ? tailValues.map(v => ((v / base) - 1) * 100) : tailValues.map(() => 0);
+        els.returnRange.textContent = `${tailDates[0]} ~ ${tailDates[tailDates.length - 1]}`;
+        els.returnChart?.setOption({
+          xAxis: { data: tailDates },
+          series: [{ data: retSeries }]
+        });
+      } else {
+        els.returnRange.textContent = '-';
+        els.returnChart?.setOption({
+          xAxis: { data: [] },
+          series: [{ data: [] }]
+        });
+      }
+    }
+
+    function updateBacktestCharts(summary) {
+      const history = summary?.portfolio_history || null;
+      const dates = history?.dates || [];
+      const strategyValues = history?.values || [];
+      const benchDates = summary?.benchmark_history?.dates || [];
+      const benchValues = summary?.benchmark_history?.values || [];
+      const uwDates = summary?.underwater_history?.dates || [];
+      const uwValues = summary?.underwater_history?.values || [];
+
+      if (dates.length > 0 && strategyValues.length > 0) {
+        els.navRange.textContent = `${dates[0]} ~ ${dates[dates.length - 1]}`;
+        els.strategyNavChart?.setOption({
+          xAxis: { data: dates },
+          series: [
+            { data: strategyValues },
+            { data: (benchDates.length === dates.length ? benchValues : []) }
+          ]
+        });
+      } else {
+        els.navRange.textContent = '-';
+        els.strategyNavChart?.setOption({
+          xAxis: { data: [] },
+          series: [{ data: [] }, { data: [] }]
+        });
+      }
+
+      if (uwDates.length > 0 && uwValues.length > 0) {
+        els.uwRange.textContent = `${uwDates[0]} ~ ${uwDates[uwDates.length - 1]}`;
+        els.underwaterChart?.setOption({
+          xAxis: { data: uwDates },
+          series: [{ data: uwValues }]
+        });
+      } else {
+        els.uwRange.textContent = '-';
+        els.underwaterChart?.setOption({
+          xAxis: { data: [] },
+          series: [{ data: [] }]
+        });
+      }
+    }
+
+    function updateExtraPerformanceCharts(summary) {
+      const tradePnl = Array.isArray(summary?.trade_pnl) ? summary.trade_pnl : [];
+      if (tradePnl.length > 0) {
+        const firstDate = tradePnl[0]?.date || '-';
+        const lastDate = tradePnl[tradePnl.length - 1]?.date || '-';
+        els.pnlRange.textContent = `${firstDate} ~ ${lastDate}（${tradePnl.length}笔卖出）`;
+        const points = tradePnl.map(t => {
+          const idx = Number(t.idx);
+          const y = Number(t.pnl_pct);
+          return {
+            value: [Number.isFinite(idx) ? idx : 0, Number.isFinite(y) ? y : 0],
+            idx: Number.isFinite(idx) ? idx : null,
+            pnl_pct: Number.isFinite(y) ? y : null,
+            pnl: Number(t.pnl),
+            date: t.date,
+            etf_code: t.etf_code
+          };
+        });
+        els.tradePnlChart?.setOption({ series: [{ data: points }] });
+      } else {
+        els.pnlRange.textContent = '-';
+        els.tradePnlChart?.setOption({ series: [{ data: [] }] });
+      }
+
+      const profile = summary?.strategy_profile || null;
+      const labels = Array.isArray(profile?.labels) ? profile.labels : [];
+      const scores = Array.isArray(profile?.scores) ? profile.scores : [];
+      if (labels.length > 0 && scores.length === labels.length) {
+        els.radarHint.textContent = `胜率${fmtPct(profile?.raw?.win_rate, 1)} / 回撤${fmtPct(profile?.raw?.max_drawdown, 1)} / 夏普${fmtNumber(summary?.sharpe_ratio, 2)}`;
+        els.strategyRadarChart?.setOption({
+          radar: { indicator: labels.map(l => ({ name: l, max: 100 })) },
+          series: [{ data: [{ name: '策略画像', value: scores.map(s => Number(s) || 0) }] }]
+        });
+      } else {
+        els.radarHint.textContent = '-';
+        els.strategyRadarChart?.setOption({ radar: { indicator: [] }, series: [{ data: [{ value: [] }] }] });
+      }
+    }
+
+    function toDayStr(value) {
+      if (!value) return null;
+      const d = new Date(value);
+      if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+      const s = String(value);
+      if (s.includes('T')) return s.slice(0, 10);
+      return s.slice(0, 10);
+    }
+
+    function updateTradeSignalChart(trades) {
+      const list = Array.isArray(trades) ? trades : [];
+      const sorted = list
+        .filter(t => t && (t.action === 'buy' || t.action === 'sell'))
+        .slice()
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      const days = [];
+      const daySet = new Set();
+      for (const t of sorted) {
+        const day = toDayStr(t.date);
+        if (!day) continue;
+        if (!daySet.has(day)) {
+          daySet.add(day);
+          days.push(day);
+        }
+      }
+
+      if (days.length === 0) {
+        els.signalRange.textContent = '-';
+        els.tradeSignalChart?.setOption({ xAxis: { data: [] }, series: [{ data: [] }, { data: [] }] });
+        return;
+      }
+
+      const buyData = [];
+      const sellData = [];
+      for (const t of sorted) {
+        const day = toDayStr(t.date);
+        if (!day) continue;
+        const base = {
+          value: [day, t.action === 'buy' ? '买入' : '卖出'],
+          date: day,
+          datetime: t.date,
+          etf_code: t.etf_code,
+          action: t.action,
+          price: t.price,
+          quantity: t.quantity,
+          amount: t.value
+        };
+        if (t.action === 'buy') buyData.push(base);
+        if (t.action === 'sell') sellData.push(base);
+      }
+
+      els.signalRange.textContent = `${days[0]} ~ ${days[days.length - 1]}（买入${buyData.length} / 卖出${sellData.length}）`;
+      els.tradeSignalChart?.setOption({
+        xAxis: { data: days },
+        series: [{ data: buyData }, { data: sellData }]
+      });
+    }
+
+    function updatePositions(positions) {
+      const list = Array.isArray(positions) ? positions : [];
+      els.posCount.textContent = `持仓数：${list.length}`;
+      renderPositions(list);
+
+      const pieData = list
+        .filter(p => p && p.market_value !== null && p.market_value !== undefined)
+        .map(p => ({ name: p.etf_code, value: Number(p.market_value) || 0 }))
+        .filter(d => d.value > 0);
+      els.positionsChart?.setOption({
+        series: [{ data: pieData }]
+      });
+    }
+
+    function updateTrades(trades) {
+      const list = Array.isArray(trades) ? trades : [];
+      state.trades = list;
+      els.tradesCount.textContent = `条目：${list.length}`;
+      renderTrades(list);
+      updateTradeSignalChart(list);
+    }
+
+    function updateDecisions(decisions) {
+      const list = Array.isArray(decisions) ? decisions : [];
+      state.decisions = list;
+      els.decisionsCount.textContent = `条目：${list.length}`;
+      renderDecisions(list);
+    }
+
+    function updateStatus(status) {
+      state.status = status || null;
+      const nowStr = fmtDateTime(new Date());
+      const lastRun = status?.last_run ? fmtDateTime(status.last_run) : '-';
+      els.lastRefreshed.textContent = `最近刷新：${nowStr}（最近运行：${lastRun}）`;
+      if (status?.paused) {
+        showWarn('交易任务已暂停，点击「恢复交易任务」继续运行');
+      } else {
+        clearError();
+      }
+    }
+
+    async function loadAllData() {
+      try {
+        clearError();
+        const [summary, trades, decisions, positions, status] = await Promise.all([
+          fetchJson('/api/summary'),
+          fetchJson('/api/trades'),
+          fetchJson('/api/decisions'),
+          fetchJson('/api/positions'),
+          fetchJson('/api/status')
+        ]);
+
+        state.summary = summary;
+        updateOverview(summary);
+        updatePerformanceChart(summary?.portfolio_history || null);
+        updateBacktestCharts(summary);
+        updateExtraPerformanceCharts(summary);
+        updateTrades(trades);
+        updateDecisions(decisions);
+        updatePositions(positions);
+        updateStatus(status);
+      } catch (e) {
+        showError(`加载数据失败：${e?.message || e}`);
+        els.lastRefreshed.textContent = '最近刷新：-';
+      }
+    }
+
+    // 渲染持仓数据
+    function renderPositions(positions) {
+      els.positionsBody.innerHTML = '';
+      positions.forEach(p => {
+        const tr = document.createElement('tr');
+        const pnlNum = Number(p.pnl);
+        const pnlCls = Number.isFinite(pnlNum) ? (pnlNum >= 0 ? 'pos' : 'neg') : '';
+        tr.innerHTML = `
+          <td class="mono">${p.etf_code}</td>
+          <td>${fmtNumber(p.quantity, 2)}</td>
+          <td>${fmtNumber(p.entry_price, 3)}</td>
+          <td>${fmtNumber(p.current_price, 3)}</td>
+          <td class="mono">${p.current_price_date}</td>
+          <td>${fmtCurrency(p.market_value)}</td>
+          <td class="${pnlCls}" style="font-weight:800;">${fmtCurrency(p.pnl)}</td>
+          <td class="${pnlCls}" style="font-weight:800;">${fmtPct(p.pnl_pct)}</td>
+          <td>${fmtNumber(p.stop_loss, 3)}</td>
+          <td>${fmtNumber(p.take_profit, 3)}</td>
+        `;
+        els.positionsBody.appendChild(tr);
+      });
+    }
+
+    // 渲染交易记录
+    function renderTrades(trades) {
+      els.tradesBody.innerHTML = '';
+      trades.forEach(t => {
+        const action = t.action;
+        const tagClass = action === 'buy' ? 'buy' : action === 'sell' ? 'sell' : 'hold';
+        const tagText = action === 'buy' ? '买入' : action === 'sell' ? '卖出' : '观望';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono">${fmtDateTime(t.date)}</td>
+          <td class="mono">${t.etf_code}</td>
+          <td><span class="tag ${tagClass}">${tagText}</span></td>
+          <td>${fmtNumber(t.price, 3)}</td>
+          <td>${fmtNumber(t.quantity, 2)}</td>
+          <td>${fmtCurrency(t.value)}</td>
+          <td>${fmtCurrency(t.capital_after)}</td>
+          <td>${t.reasoning || ''}</td>
+        `;
+        els.tradesBody.appendChild(tr);
+      });
+    }
+
+    // 渲染AI决策记录
+    function renderDecisions(decisions) {
+      els.decisionsBody.innerHTML = '';
+      decisions.forEach(d => {
+        const dec = d.decision;
+        const tagClass = dec === 'buy' ? 'buy' : dec === 'sell' ? 'sell' : 'hold';
+        const tagText = dec === 'buy' ? '买入' : dec === 'sell' ? '卖出' : '观望';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono">${d.date}</td>
+          <td class="mono">${d.etf}</td>
+          <td><span class="tag ${tagClass}">${tagText}</span></td>
+          <td>${fmtNumber(d.confidence, 2)}</td>
+          <td>${d.reasoning || ''}</td>
+          <td class="mono">${d.file || ''}</td>
+        `;
+        els.decisionsBody.appendChild(tr);
+      });
+    }
+
+    // 导出CSV
+    function exportTradesCsv() {
+      const headers = ['日期', 'ETF代码', '操作', '价格', '数量', '总值', '操作后资金', '理由'];
+      const lines = [headers.join(',')];
+
+      state.trades.forEach(t => {
+        const actionText = t.action === 'buy' ? '买入' : t.action === 'sell' ? '卖出' : '观望';
+        const row = [
+          fmtDateTime(t.date),
+          t.etf_code,
+          actionText,
+          fmtNumber(t.price, 3),
+          fmtNumber(t.quantity, 2),
+          fmtCurrency(t.value).replace('¥', ''),
+          fmtCurrency(t.capital_after).replace('¥', ''),
+          `"${t.reasoning || ''}"` // 理由字段加引号，避免逗号分割
+        ];
+        lines.push(row.join(','));
+      });
+
+      const csvContent = lines.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `交易记录_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`);
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    // 绑定按钮事件
+    function bindEvents() {
+      // 刷新按钮
+      els.btnRefresh.addEventListener('click', () => {
+        loadAllData();
+      });
+
+      // 暂停按钮
+      els.btnPause.addEventListener('click', async () => {
+        try {
+          await fetchJson('/api/pause', { method: 'POST' });
+          await loadAllData();
+        } catch (e) {
+          showError(`暂停失败：${e?.message || e}`);
+        }
+      });
+
+      // 恢复按钮
+      els.btnResume.addEventListener('click', async () => {
+        try {
+          await fetchJson('/api/resume', { method: 'POST' });
+          await loadAllData();
+        } catch (e) {
+          showError(`恢复失败：${e?.message || e}`);
+        }
+      });
+
+      // 导出CSV按钮
+      els.btnExportTrades.addEventListener('click', exportTradesCsv);
+    }
+
+    // 初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      window.addEventListener('error', (ev) => {
+        const msg = ev?.error?.message || ev?.message || '页面脚本运行异常';
+        showError(msg);
+      });
+      initNav();
+      try {
+        initCharts();
+      } catch (e) {
+        showError(`图表库加载失败：${e?.message || e}（请确保可访问外网CDN或更换网络）`);
+      }
+      els.lastRefreshed.textContent = `最近刷新：页面脚本已加载（API：${API_BASE}）`;
+      loadAllData();
+      bindEvents();
+    });
+  </script>
+</body>
+</html>

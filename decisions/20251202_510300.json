@@ -1,0 +1,8 @@
+{
+  "decision": "hold",
+  "confidence": 0.65,
+  "reasoning": "该ETF处于上涨趋势中，但当前价格低于20日和60日均线，且成交量显著萎缩，显示短期动能不足。价格偏离均值较小，暂无明确买卖信号。",
+  "target_price": 4.748,
+  "stop_loss": 4.531,
+  "take_profit": 4.82
+}
