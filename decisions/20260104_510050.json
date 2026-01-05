@@ -1,0 +1,8 @@
+{
+  "decision": "hold",
+  "confidence": 0.65,
+  "reasoning": "当前价格处于下跌趋势中，且低于20日和60日均线，短期偏弱。尽管成交量放大可能暗示波动加剧，但缺乏企稳信号，暂不具备买入条件。",
+  "target_price": 3.138,
+  "stop_loss": 3.075,
+  "take_profit": 3.168
+}

@@ -5,15 +5,20 @@ import os
 import sys
 import json
 from apscheduler.schedulers.blocking import BlockingScheduler
-from .config import ETF_LIST, ETF_DATA_DB, DATA_DIR, MIN_DECISION_CONFIDENCE
-from .logger import logger
+# 修改点1：去掉.config前的.
+from config import ETF_LIST, ETF_DATA_DB, DATA_DIR, MIN_DECISION_CONFIDENCE
+# 修改点2：去掉.logger前的.
+from logger import logger
 
 # Add current directory to path to ensure imports work
-# sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from .data_fetcher import fetch_etf_data, save_to_db
-from .ai_decision import get_ai_decision
-from .trade_executor import TradeExecutor
+# 修改点3：去掉.data_fetcher前的.
+from data_fetcher import fetch_etf_data, save_to_db
+# 修改点4：去掉.ai_decision前的.
+from ai_decision import get_ai_decision
+# 修改点5：去掉.trade_executor前的.
+from trade_executor import TradeExecutor
 
 # Initialize Executor
 executor = TradeExecutor()
