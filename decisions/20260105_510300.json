@@ -1,0 +1,8 @@
+{
+  "decision": "buy",
+  "confidence": 0.85,
+  "reasoning": "价格处于上涨趋势，站稳20日和60日均线之上，近期涨幅稳定，成交量显著放大显示资金进场意愿强烈，短期动能偏强，具备突破潜力。",
+  "target_price": 4.98,
+  "stop_loss": 4.72,
+  "take_profit": 5.05
+}

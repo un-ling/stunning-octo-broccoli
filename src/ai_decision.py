@@ -15,8 +15,9 @@ env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
 
 # Note: Replace 'your-api-key' with the actual API key or use environment variable
-api_key = os.environ.get("OPENAI_API_KEY")
-base_url = os.environ.get("OPENAI_BASE_URL")
+# Prefer DASHSCOPE_API_KEY for Alibaba Cloud, fallback to OPENAI_API_KEY if needed
+api_key = os.environ.get("DASHSCOPE_API_KEY") or os.environ.get("OPENAI_API_KEY")
+base_url = os.environ.get("DASHSCOPE_BASE_URL") or os.environ.get("OPENAI_BASE_URL")
 model_name = os.environ.get("MODEL_NAME", DEFAULT_MODEL)
 
 # Initialize client with optional base_url

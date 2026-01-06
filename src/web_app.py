@@ -17,6 +17,7 @@ from .config import (
 )
 from .logger import logger
 from .performance import calculate_performance
+import numpy as np
 
 app = Flask(__name__, static_folder=STATIC_DIR, template_folder=TEMPLATE_DIR)
 
@@ -385,7 +386,47 @@ def get_decisions():
     decisions = []
     search_pattern = os.path.join(DECISIONS_DIR, '*.json')
     files = glob.glob(search_pattern)
-    
+    price_db_path = ETF_DATA_DB
+    if not os.path.isabs(price_db_path):
+        price_db_path = os.path.join(PROJECT_ROOT, price_db_path)
+    price_conn = sqlite3.connect(price_db_path) if os.path.exists(price_db_path) else None
+
+    def _indicators_for_date(etf_code: str, date_str: str):
+        if price_conn is None or not etf_code or not date_str:
+            return None
+        try:
+            dfp = pd.read_sql_query(
+                f"SELECT 日期, 收盘, 成交量 FROM etf_{etf_code} WHERE 日期 <= ? ORDER BY 日期 ASC",
+                price_conn,
+                params=(date_str,),
+            )
+            if dfp.empty or len(dfp) < 30:
+                return None
+            close = pd.to_numeric(dfp["收盘"], errors="coerce")
+            vol = pd.to_numeric(dfp["成交量"], errors="coerce")
+            close = close.fillna(method="ffill")
+            vol = vol.fillna(0)
+            ema12 = close.ewm(span=12, adjust=False).mean()
+            ema26 = close.ewm(span=26, adjust=False).mean()
+            macd = ema12 - ema26
+            macd_signal = macd.ewm(span=9, adjust=False).mean()
+            macd_hist = macd - macd_signal
+            delta = close.diff()
+            up = delta.clip(lower=0)
+            down = -delta.clip(upper=0)
+            roll_up = up.rolling(14).mean()
+            roll_down = down.rolling(14).mean()
+            rs = roll_up / roll_down
+            rsi14 = 100 - (100 / (1 + rs))
+            return {
+                "macd": float(macd.iloc[-1]),
+                "macd_signal": float(macd_signal.iloc[-1]),
+                "macd_hist": float(macd_hist.iloc[-1]),
+                "rsi14": float(rsi14.iloc[-1]) if not np.isnan(rsi14.iloc[-1]) else None,
+            }
+        except Exception:
+            return None
+
     for f in files:
         try:
             with open(f, 'r', encoding='utf-8') as file:
@@ -395,21 +436,31 @@ def get_decisions():
                 parts = filename.replace('.json', '').split('_')
                 date_str = parts[0] if len(parts) > 0 else 'Unknown'
                 etf_code = parts[1] if len(parts) > 1 else 'Unknown'
-                
+                ind = _indicators_for_date(etf_code, date_str)
+                reasoning = d.get('reasoning', '')
+                if isinstance(ind, dict):
+                    try:
+                        reasoning = f"{reasoning}  【指标参考】MACD(DIF {ind['macd']:.3f}, DEA {ind['macd_signal']:.3f}, HIST {ind['macd_hist']:.3f}); RSI14 {ind['rsi14']:.2f}" if ind.get('rsi14') is not None else f"{reasoning}  【指标参考】MACD(DIF {ind['macd']:.3f}, DEA {ind['macd_signal']:.3f}, HIST {ind['macd_hist']:.3f})"
+                    except Exception:
+                        pass
+
                 decisions.append({
                     'file': filename,
                     'etf': etf_code,
                     'date': date_str,
                     'decision': d.get('decision', 'unknown'),
                     'confidence': d.get('confidence', 0),
-                    'reasoning': d.get('reasoning', '')
+                    'reasoning': reasoning
                 })
         except Exception as e:
             logger.error(f"Error reading decision file {f}: {e}")
             
     # Sort by date descending
     decisions.sort(key=lambda x: x['date'], reverse=True)
-    return jsonify(decisions[:50])
+    out = decisions[:50]
+    if price_conn is not None:
+        price_conn.close()
+    return jsonify(out)
 
 @app.route('/api/status')
 def get_status():

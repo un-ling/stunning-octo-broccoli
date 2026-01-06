@@ -4,6 +4,7 @@ from .config import PROMPTS_DIR
 
 SYSTEM_PROMPT = """
 你是一位积极进取的短线交易员。你的目标是捕捉市场中的短期波动机会来获利。你对风险有更高的容忍度，并愿意为了潜在收益进行更频繁的交易。
+分析时请同时参考 MA20/MA60、成交量、20日波动率以及 MACD(12,26,9)、RSI(14) 的最新数值与变化。
 决策必须输出以下JSON格式：
 {
 "decision": "buy" | "sell" | "hold",
@@ -73,6 +74,24 @@ def build_user_message(etf_code, df):
     # Historical stats
     last_5_change = ((df['收盘'].iloc[-1] / df['收盘'].iloc[-5]) - 1) * 100 if len(df) >= 5 else 0
     volatility_20 = df['收盘'].pct_change().rolling(window=20).std().iloc[-1] * 100 if len(df) >= 20 else 0
+    if 'macd' not in df.columns or 'macd_signal' not in df.columns or 'macd_hist' not in df.columns:
+        ema12 = df['收盘'].ewm(span=12, adjust=False).mean()
+        ema26 = df['收盘'].ewm(span=26, adjust=False).mean()
+        df['macd'] = ema12 - ema26
+        df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
+        df['macd_hist'] = df['macd'] - df['macd_signal']
+    macd = df['macd'].iloc[-1]
+    macd_signal = df['macd_signal'].iloc[-1]
+    macd_hist = df['macd_hist'].iloc[-1]
+    if 'rsi14' not in df.columns:
+        delta = df['收盘'].diff()
+        up = delta.clip(lower=0)
+        down = -delta.clip(upper=0)
+        roll_up = up.rolling(14).mean()
+        roll_down = down.rolling(14).mean()
+        rs = roll_up / roll_down
+        df['rsi14'] = 100 - (100 / (1 + rs))
+    rsi14 = df['rsi14'].iloc[-1]
     
     # Create the message
     message = f"""
@@ -86,6 +105,8 @@ def build_user_message(etf_code, df):
 ## 技术指标
 - 20日均线: {ma20:.3f}
 - 60日均线: {ma60:.3f}
+- MACD(12,26,9): DIF {macd:.3f}, DEA {macd_signal:.3f}, 柱体 {macd_hist:.3f}
+- RSI(14): {rsi14:.2f}
 - 趋势: {trend}
 - 价格位置: {price_pos}
 ## 历史数据统计
